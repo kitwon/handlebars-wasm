@@ -25,15 +25,20 @@ impl Handlebars {
 
   pub fn compile(&self, tpl: String, data: &[u8]) -> String {
     let json = from_slice::<JsonValue>(data).unwrap();
-    let result = self.instance.render_template(tpl.as_str(), &json).unwrap();
+    let result = match self.instance.render_template(tpl.as_str(), &json) {
+      Ok(tpl_string) => tpl_string,
+      Err(error) => panic!("Compile templete error: {:?}", error),
+    };
+
     result
   }
 
-  pub fn register_helper(&mut self, name: String, f: Function) {
+  pub fn register_helper(&mut self, name: String, wrapper: Function, f: Function) {
     self.instance.register_helper(
       name.as_str(),
       Box::new(JsHelper {
         js_fn_tpl: format!("return {}", f.to_string().as_string().unwrap()),
+        wrap_fn_tpl: format!("return {}", wrapper.to_string().as_string().unwrap()),
       }),
     )
   }
@@ -43,37 +48,5 @@ impl Handlebars {
       .instance
       .register_partial(name.as_str(), partial)
       .unwrap()
-  }
-}
-
-#[cfg(test)]
-mod test {
-  use crate::Handlebars;
-  use js_sys::Function;
-  use wasm_bindgen_test::*;
-
-  #[wasm_bindgen_test]
-  fn helper() {
-    let mut inst = Handlebars::new();
-    inst.register_helper(
-      "test".to_string(),
-      Function::new_with_args(
-        "a, option",
-        "
-      console.log(a, option)
-      console.log(option.template)
-      return `I'm arg: ${a}`
-    ",
-      ),
-    );
-    let result = inst.compile(
-      "hello world! {{#test foo}}123{{/test}} {{bar}}".to_string(),
-      "{
-      \"foo\": \"bar\",
-      \"bar\": \", but bar is foo\"
-    }"
-      .as_bytes(),
-    );
-    console_log!("{:?}", result);
   }
 }

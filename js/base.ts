@@ -1,4 +1,4 @@
-import { CompileContextFunction, Helper } from "./types"
+import { CompileContextFunction, HelperOption } from "./types"
 import { Handlebars } from '../pkg/handlebars_wasm'
 import { rawStringToArrayBuffer } from "./utils"
 
@@ -24,7 +24,7 @@ export default class HandlebarsEnvironment {
    * @param options - Handlebars options
    * @returns {CompileContextFunction}
    */
-  compile(template: string, options: any): CompileContextFunction {
+  compile(template: string, options?: any): CompileContextFunction {
     const compiled = (context: Record<string, any>) => {
       // Return compile
       return this.instance.compile(template, rawStringToArrayBuffer(JSON.stringify(context)))
@@ -39,8 +39,19 @@ export default class HandlebarsEnvironment {
    * @param name - helper name
    * @param helper - helper function
    */
-  registerHelper(name: string, helper: Helper) {
-    this.instance.register_helper(name, helper)
+  registerHelper<A extends (...args: any[]) => any>(name: string, helper: A) {
+    const wrapper = (data: any, options: HelperOption, h: A) => {
+      let args = [options]
+      if (data && Array.isArray(data)) {
+        args = data.concat(args)
+      } else if (data) {
+        args.unshift(data)
+      }
+
+      return h(...args)
+    }
+
+    this.instance.register_helper(name, wrapper, helper)
   }
   
   /**

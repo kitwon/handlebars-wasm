@@ -1,3 +1,5 @@
+.DS_Store
+
 /target
 **/*.rs.bk
 Cargo.lock
@@ -6,3 +8,6 @@ pkg/
 wasm-pack.log
 
 node_modules/
+
+# Editor config
+.vscode
