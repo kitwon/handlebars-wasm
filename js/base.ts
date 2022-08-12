@@ -1,13 +1,28 @@
-import { CompileContextFunction, HelperOption } from "./types"
-import { Handlebars } from '../pkg/handlebars_wasm'
-import { rawStringToArrayBuffer } from "./utils"
+import { CompileContextFunction, HelperCtxs, HelperOption } from "./types";
+import { Handlebars } from "../pkg/handlebars_wasm";
+import { rawStringToArrayBuffer } from "./utils";
 
 export default class HandlebarsEnvironment {
   /* Handelbars instance object */
-  instance: Handlebars
+  instance: Handlebars;
 
-  constructor() {
-    this.instance = new Handlebars()
+  constructor(config: any = {}) {
+    this.instance = new Handlebars(config);
+  }
+
+  static wrapOptionFn(options: HelperOption, ctxs: HelperCtxs): HelperOption {
+    return {
+      template: (context) => {
+        // const value = rawStringToArrayBuffer(JSON.stringify(context));
+        ctxs.template.push(context);
+        return options.template(context);
+      },
+      inverse(context) {
+        // const value = rawStringToArrayBuffer(JSON.stringify(context));
+        ctxs.inverse.push(context);
+        return options.inverse(context);
+      },
+    };
   }
 
   /**
@@ -27,55 +42,78 @@ export default class HandlebarsEnvironment {
   compile(template: string, options?: any): CompileContextFunction {
     const compiled = (context: Record<string, any>) => {
       // Return compile
-      return this.instance.compile(template, rawStringToArrayBuffer(JSON.stringify(context)))
-    }
+      return this.instance.compile(
+        template,
+        rawStringToArrayBuffer(JSON.stringify(context))
+      );
+    };
 
-    return compiled
+    return compiled;
   }
-  
+
   /**
    * Registers helpers accessible by any template in the environment.
-   * 
+   *
    * @param name - helper name
    * @param helper - helper function
    */
   registerHelper<A extends (...args: any[]) => any>(name: string, helper: A) {
+    /**
+     * Wrapper function for js helper
+     *
+     * @param data context data
+     * @param options rust helper option structure
+     * @param h helper function
+     */
     const wrapper = (data: any, options: HelperOption, h: A) => {
-      let args = [options]
-      if (data && Array.isArray(data)) {
-        args = data.concat(args)
-      } else if (data) {
-        args.unshift(data)
-      }
+      const ctxs: HelperCtxs = {
+        inverse: [],
+        template: [],
+      };
 
-      return h(...args)
-    }
+      const wrapOptionFn = (
+        options: HelperOption,
+        ctxs: HelperCtxs
+      ): HelperOption => {
+        return {
+          template: (context) => {
+            // const value = rawStringToArrayBuffer(JSON.stringify(context));
+            ctxs.template.push(context);
+            return options.template(context);
+          },
+          inverse(context) {
+            // const value = rawStringToArrayBuffer(JSON.stringify(context));
+            ctxs.inverse.push(context);
+            return options.inverse(context);
+          },
+        };
+      };
 
-    this.instance.register_helper(name, wrapper, helper)
+      let args = [data, wrapOptionFn(options, ctxs)];
+
+      return { text: h(...args), ctxs };
+    };
+
+    this.instance.register_helper(name, wrapper, helper);
   }
-  
+
   /**
    * Unregister a previously registered helper.
-   * 
+   *
    * @param name - helper name
    */
-  unregisterHelper(name: string) {
-  }
-  
+  unregisterHelper(name: string) {}
+
   /**
    * Registers partials accessible by any template in the environment.
    * @param name - partial name
    * @param partial - partial template string
    */
-  registerPartial(name: string, partial: string) {
-  
-  }
-  
+  registerPartial(name: string, partial: string) {}
+
   /**
    * Unregister a previously registered helper.
    * @param name - partial name
    */
-  unresiterPartial(name: string) {
-  
-  }
+  unregisterPartial(name: string) {}
 }

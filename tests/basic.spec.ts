@@ -1,9 +1,8 @@
 import Handlebars from "../js";
 import { rawStringToArrayBuffer } from "../js/utils";
-import { Handlebars as HandlebarsWasm } from '../pkg'
+import { Handlebars as HandlebarsWasm } from "../pkg";
 
-
-describe("basic conetxt", () => {
+describe("basic context", () => {
   it("most basic", () => {
     const template = Handlebars.compile("{{foo}}");
     const result = template({ foo: "bar" });
@@ -12,11 +11,14 @@ describe("basic conetxt", () => {
   });
 
   it("should treat as equal", () => {
-    const result = Handlebars.compile("{{foo}}")({foo: "bar"})
-    const wasmInst = new HandlebarsWasm()
-    const wasm = wasmInst.compile("{{foo}}", rawStringToArrayBuffer(JSON.stringify({foo: "bar"})))
+    const result = Handlebars.compile("{{foo}}")({ foo: "bar" });
+    const wasmInst = new HandlebarsWasm({});
+    const wasm = wasmInst.compile(
+      "{{foo}}",
+      rawStringToArrayBuffer(JSON.stringify({ foo: "bar" }))
+    );
 
-    expect(result).toEqual(wasm)
-    expect(result).toEqual("bar")
-  })
+    expect(result).toEqual(wasm);
+    expect(result).toEqual("bar");
+  });
 });

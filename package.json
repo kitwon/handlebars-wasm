@@ -6,7 +6,10 @@
   "main": "index.js",
   "scripts": {
     "test:watch": "vitest",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:watch": "chokidar \"src/**.rs\" -c \"pnpm run build\"",
+    "build": "wasm-pack build --target nodejs",
+    "dev": "cargo watch -s \"pnpm run build\""
   },
   "keywords": [
     "wasm",
@@ -16,7 +19,9 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^18.0.0",
+    "chokidar-cli": "^3.0.0",
     "typescript": "^4.7.4",
+    "vite": "^3.0.3",
     "vitest": "^0.17.0"
   }
 }
