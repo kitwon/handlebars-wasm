@@ -1,4 +1,7 @@
-use handlebars::{Context, Handlebars, Helper, HelperDef, HelperResult, Output, RenderContext};
+use crate::utils::{create_block, set_block_param, update_block_context};
+use handlebars::{
+  to_json, Context, Handlebars, Helper, HelperDef, HelperResult, Output, RenderContext, Renderable,
+};
 use js_sys::Function;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -92,53 +95,41 @@ impl HelperDef for JsHelper {
         JsValue::undefined()
       }
     };
+
     let result: JsHelperResult = result.into_serde().unwrap();
-    println!("{:?}", result.ctxs.template);
+    match h.template() {
+      Some(t) => {
+        let block_context = create_block(value);
+        rc.push_block(block_context);
 
-    // let result = result
-    //   .replace(self.tags.template.to_string(), Some(h.template()))
-    //   .replace(self.tags.inverse.to_string(), h.inverse());
-    out.write(result.text.as_str())?;
-    Ok(())
-  }
-}
+        let array_path = value.context_path();
 
-#[cfg(test)]
-mod test {
-  use crate::js_helper::{JsHelper, Tags};
-  use handlebars::Handlebars;
+        let len = result.ctxs.template.len();
+        for (i, v) in result.ctxs.template.iter().enumerate().take(len) {
+          if let Some(ref mut block) = rc.block_mut() {
+            let is_first = i == 0usize;
+            let is_last = i == len - 1;
 
-  const WRAPPER: &str = "(data: any, options: HelperOption, h: A) => {
-    let args = [options];
-    if (data && Array.isArray(data)) {
-      args = data.concat(args);
-    } else if (data) {
-      args.unshift(data);
+            let index = to_json(i);
+            block.set_local_var("first", to_json(is_first));
+            block.set_local_var("last", to_json(is_last));
+            block.set_local_var("index", index.clone());
+
+            block.set_base_value(v.clone());
+            set_block_param(block, h, array_path, &index, v)?;
+          }
+
+          t.render(r, ctx, rc, out)?;
+        }
+        rc.pop_block();
+
+        out.write(result.text.as_str())?;
+        Ok(())
+      }
+      _ => {
+        out.write(result.text.as_str())?;
+        Ok(())
+      }
     }
-
-    return h(...args);
-  };";
-
-  #[test]
-  fn test_js_iterator() {
-    let mut hbs = Handlebars::new();
-    hbs.register_helper(
-      "list",
-      Box::new(JsHelper {
-        js_fn_tpl: "return (list: string[], options: HelperOption) => {
-          return list
-            .map((i) => {
-              return options.fn(i);
-            })
-            .join('');
-        }"
-        .to_string(),
-        wrap_fn_tpl: format!("return {}", WRAPPER),
-        tags: Tags {
-          inverse: "%%INVERSE%%".to_string(),
-          template: "%%TEMPLATE%%".to_string(),
-        },
-      }),
-    )
   }
 }

@@ -7,6 +7,7 @@ use serde_json::from_slice;
 use wasm_bindgen::prelude::*;
 
 mod js_helper;
+mod utils;
 use js_helper::{JsHelper, Tags};
 
 #[derive(Serialize, Deserialize)]

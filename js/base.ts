@@ -77,14 +77,12 @@ export default class HandlebarsEnvironment {
       ): HelperOption => {
         return {
           template: (context) => {
-            // const value = rawStringToArrayBuffer(JSON.stringify(context));
             ctxs.template.push(context);
-            return options.template(context);
+            // return options.template(context);
           },
           inverse(context) {
-            // const value = rawStringToArrayBuffer(JSON.stringify(context));
             ctxs.inverse.push(context);
-            return options.inverse(context);
+            // return options.inverse(context);
           },
         };
       };
