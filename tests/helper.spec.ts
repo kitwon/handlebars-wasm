@@ -27,10 +27,10 @@ describe("helpers", () => {
     const result = Handlebars.compile(
       "<ul>{{#list people}}<li>1{{this}}</li>{{/list}}</ul>"
     );
-    console.log(
-      result({
-        people: ["Joan", "Kit", "Mary"],
-      })
-    );
+    // console.log(
+    //   result({
+    //     people: ["Joan", "Kit", "Mary"],
+    //   })
+    // );
   });
 });

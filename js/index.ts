@@ -1,10 +1,11 @@
 import HandlebarsEnvironment from "./base";
 
-const inst = new HandlebarsEnvironment()
+const inst = new HandlebarsEnvironment();
 
+export * from "./types";
 export function create() {
-  const env = new HandlebarsEnvironment()
-  return env
+  const env = new HandlebarsEnvironment();
+  return env;
 }
 
 export default inst;

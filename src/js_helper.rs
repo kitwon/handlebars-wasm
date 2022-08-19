@@ -1,8 +1,9 @@
-use crate::utils::{create_block, set_block_param, update_block_context};
+use crate::utils::{create_block, set_block_param};
 use handlebars::{
-  to_json, Context, Handlebars, Helper, HelperDef, HelperResult, Output, RenderContext, Renderable,
+  to_json, Context, Handlebars, Helper, HelperDef, HelperResult, Output, RenderContext,
+  RenderError, Renderable,
 };
-use js_sys::Function;
+use js_sys::{Array, Function};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
@@ -17,6 +18,25 @@ fn get_js_fn(tpl: &str) -> JsValue {
   }
 }
 
+fn get_js_params<'reg: 'rc, 'rc>(h: &Helper<'reg, 'rc>) -> Array {
+  let data: Vec<JsValue> = h
+    .params()
+    .iter()
+    .map(|v| match JsValue::from_serde(&v.value()) {
+      Ok(value) => value,
+      Err(_e) => JsValue::undefined(),
+    })
+    .collect();
+  let js_array = Array::new();
+
+  for i in data.iter() {
+    js_array.push(i);
+  }
+
+  js_array
+}
+
+// TODO: make context mix inverse and template
 #[derive(Serialize, Deserialize)]
 pub struct JsHelperCtxs {
   inverse: Vec<Value>,
@@ -29,36 +49,9 @@ pub struct JsHelperResult {
   ctxs: JsHelperCtxs,
 }
 
-/**
- * Option function tags
- */
-#[derive(Serialize, Deserialize)]
-pub struct Tags {
-  pub template: String,
-  pub inverse: String,
-}
-
-#[wasm_bindgen]
-pub struct HelperOptions {
-  template_tag: String,
-  inverse_tag: String,
-}
-
-#[wasm_bindgen]
-impl HelperOptions {
-  pub fn template(&mut self) -> String {
-    self.template_tag.clone()
-  }
-
-  pub fn inverse(&mut self) -> String {
-    self.inverse_tag.clone()
-  }
-}
-
 pub struct JsHelper {
   pub js_fn_tpl: String,
   pub wrap_fn_tpl: String,
-  pub tags: Tags,
 }
 
 impl HelperDef for JsHelper {
@@ -76,19 +69,9 @@ impl HelperDef for JsHelper {
 
     let helper_wrapper = Function::from(wrapper);
     let js_helper = Function::from(helper);
+    let data = get_js_params(h);
 
-    let value = h.param(0).unwrap();
-
-    let data = match JsValue::from_serde(value.value()) {
-      Ok(val) => val,
-      Err(_) => JsValue::null(),
-    };
-
-    let options = HelperOptions {
-      inverse_tag: self.tags.inverse.to_string(),
-      template_tag: self.tags.template.to_string(),
-    };
-    let result = match helper_wrapper.call3(&JsValue::null(), &data, &options.into(), &js_helper) {
+    let result = match helper_wrapper.call2(&JsValue::null(), &data.into(), &js_helper) {
       Ok(res) => res,
       Err(err) => {
         console::log_1(&err);
@@ -96,39 +79,47 @@ impl HelperDef for JsHelper {
       }
     };
 
-    let result: JsHelperResult = result.into_serde().unwrap();
-    match h.template() {
-      Some(t) => {
-        let block_context = create_block(value);
-        rc.push_block(block_context);
+    match result.into_serde::<JsHelperResult>() {
+      Ok(res) => {
+        if let Some(t) = h.template() {
+          let len = res.ctxs.template.len();
+          if len > 0 {
+            let value = h
+              .param(0)
+              .ok_or_else(|| console::log_1(&"Get helper params error".into()));
 
-        let array_path = value.context_path();
+            let block_context = create_block(value.unwrap());
+            rc.push_block(block_context);
 
-        let len = result.ctxs.template.len();
-        for (i, v) in result.ctxs.template.iter().enumerate().take(len) {
-          if let Some(ref mut block) = rc.block_mut() {
-            let is_first = i == 0usize;
-            let is_last = i == len - 1;
+            let array_path = value.unwrap().context_path();
 
-            let index = to_json(i);
-            block.set_local_var("first", to_json(is_first));
-            block.set_local_var("last", to_json(is_last));
-            block.set_local_var("index", index.clone());
+            for (i, v) in res.ctxs.template.iter().enumerate().take(len) {
+              if let Some(ref mut block) = rc.block_mut() {
+                let is_first = i == 0usize;
+                let is_last = i == len - 1;
 
-            block.set_base_value(v.clone());
-            set_block_param(block, h, array_path, &index, v)?;
+                let index = to_json(i);
+                block.set_local_var("first", to_json(is_first));
+                block.set_local_var("last", to_json(is_last));
+                block.set_local_var("index", index.clone());
+
+                block.set_base_value(v.clone());
+                set_block_param(block, h, array_path, &index, v)?;
+              }
+
+              t.render(r, ctx, rc, out)?;
+            }
+            rc.pop_block();
           }
-
-          t.render(r, ctx, rc, out)?;
         }
-        rc.pop_block();
 
-        out.write(result.text.as_str())?;
+        out.write(res.text.as_str())?;
         Ok(())
       }
-      _ => {
-        out.write(result.text.as_str())?;
-        Ok(())
+
+      Err(e) => {
+        console::log_1(&"Parse js helper error".into());
+        Err(RenderError::new(&"Parse js helper error"))
       }
     }
   }

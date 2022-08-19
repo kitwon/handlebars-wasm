@@ -8,8 +8,8 @@
     "test:watch": "vitest",
     "test": "vitest run",
     "build:watch": "chokidar \"src/**.rs\" -c \"pnpm run build\"",
-    "build": "wasm-pack build --target nodejs",
-    "dev": "cargo watch -s \"pnpm run build\""
+    "build": "wasm-pack build --debug --target nodejs",
+    "dev": "pnpm run build:watch"
   },
   "keywords": [
     "wasm",
@@ -18,10 +18,11 @@
   ],
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^18.0.0",
+    "@types/node": "^18.7.6",
     "chokidar-cli": "^3.0.0",
+    "prettier": "^2.7.1",
     "typescript": "^4.7.4",
-    "vite": "^3.0.3",
-    "vitest": "^0.17.0"
+    "vite": "^3.0.8",
+    "vitest": "^0.22.0"
   }
 }

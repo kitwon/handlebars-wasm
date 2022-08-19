@@ -1,13 +1,13 @@
-import { CompileContextFunction, HelperCtxs, HelperOption } from "./types";
-import { Handlebars } from "../pkg/handlebars_wasm";
-import { rawStringToArrayBuffer } from "./utils";
+import { CompileContextFunction, HelperCtxs, HelperOption } from './types';
+import { Handlebars } from '../pkg/handlebars_wasm';
+import { rawStringToArrayBuffer } from './utils';
 
 export default class HandlebarsEnvironment {
   /* Handelbars instance object */
   instance: Handlebars;
 
   constructor(config: any = {}) {
-    this.instance = new Handlebars(config);
+    this.instance = new Handlebars();
   }
 
   static wrapOptionFn(options: HelperOption, ctxs: HelperCtxs): HelperOption {
@@ -21,7 +21,7 @@ export default class HandlebarsEnvironment {
         // const value = rawStringToArrayBuffer(JSON.stringify(context));
         ctxs.inverse.push(context);
         return options.inverse(context);
-      },
+      }
     };
   }
 
@@ -40,12 +40,22 @@ export default class HandlebarsEnvironment {
    * @returns {CompileContextFunction}
    */
   compile(template: string, options?: any): CompileContextFunction {
-    const compiled = (context: Record<string, any>) => {
+    const compiled = (context: Record<string, any> | string) => {
+      let input: any = '';
+      switch (typeof context) {
+        case 'undefined':
+          input = '{}';
+          break;
+        case 'object':
+          input = JSON.stringify(context);
+          break;
+        case 'string':
+          input = JSON.stringify(context.split(''));
+          break;
+      }
+
       // Return compile
-      return this.instance.compile(
-        template,
-        rawStringToArrayBuffer(JSON.stringify(context))
-      );
+      return this.instance.compile(template, rawStringToArrayBuffer(input));
     };
 
     return compiled;
@@ -65,29 +75,24 @@ export default class HandlebarsEnvironment {
      * @param options rust helper option structure
      * @param h helper function
      */
-    const wrapper = (data: any, options: HelperOption, h: A) => {
+    const wrapper = (data: any, h: A) => {
       const ctxs: HelperCtxs = {
         inverse: [],
-        template: [],
+        template: []
       };
 
-      const wrapOptionFn = (
-        options: HelperOption,
-        ctxs: HelperCtxs
-      ): HelperOption => {
+      const wrapOptionFn = (ctxs: HelperCtxs): HelperOption => {
         return {
           template: (context) => {
             ctxs.template.push(context);
-            // return options.template(context);
           },
           inverse(context) {
             ctxs.inverse.push(context);
-            // return options.inverse(context);
-          },
+          }
         };
       };
 
-      let args = [data, wrapOptionFn(options, ctxs)];
+      let args = [data, wrapOptionFn(ctxs)];
 
       return { text: h(...args), ctxs };
     };

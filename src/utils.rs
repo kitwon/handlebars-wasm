@@ -1,7 +1,5 @@
 use handlebars::{BlockContext, BlockParams, Helper, PathAndJson, RenderError};
 use serde_json::value::Value as Json;
-use wasm_bindgen::JsValue;
-use web_sys::console;
 
 #[inline]
 pub(crate) fn copy_on_push_vec<T>(input: &[T], el: T) -> Vec<T>
